@@ -1,24 +1,31 @@
 package com.kiienkoromaniuk.coctailshelper.ui.coctailsList
 
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.kiienkoromaniuk.coctailshelper.R
-import com.kiienkoromaniuk.coctailshelper.ui.coctailsList.placeholder.PlaceholderContent
+import androidx.fragment.app.viewModels
+import com.kiienkoromaniuk.coctailshelper.data.models.Drink
+import com.kiienkoromaniuk.coctailshelper.databinding.FragmentCoctailListBinding
 import dagger.hilt.android.AndroidEntryPoint
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.schedulers.Schedulers
 
-/**
- * A fragment representing a list of Items.
- */
+
 @AndroidEntryPoint
 class CoctailsFragment : Fragment() {
 
+    private val TAG="CoctailsFragment"
+
     private var columnCount = 1
+    private val viewModel: CoctailsViewModel by viewModels()
+
+    private var _binding: FragmentCoctailListBinding? = null
+    private val binding get() = _binding!!
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,21 +39,48 @@ class CoctailsFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        val view = inflater.inflate(R.layout.fragment_coctail_list, container, false)
+        _binding = FragmentCoctailListBinding.inflate(inflater, container, false)
+        Log.d(TAG, "onCreateView")
+        return binding.root
+    }
+    override fun onDestroyView() {
+        Log.d(TAG, "onDestroyVIew")
+        super.onDestroyView()
+        _binding = null
+    }
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        Log.d(TAG, "onViewCreated")
+        getCoctails()
+        super.onViewCreated(view, savedInstanceState)
+    }
+    private fun getCoctails(){
+        Log.d(TAG, "get coctails")
+        val single =viewModel.getCoctails("Alcoholic").subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .map {
+                return@map it.drinks
+            }.subscribe(
+                {
+                    Log.d(TAG, "subscribe: onSuccess")
+                    setAdapter(it)
+                },{
+                    Log.e(TAG, it.toString())
+            }
+        )
+
+    }
+    private fun setAdapter(items: List<Drink>){
+        val view = binding.root
 
         // Set the adapter
-        if (view is RecyclerView) {
-            with(view) {
-                layoutManager = when {
-                    columnCount <= 1 -> LinearLayoutManager(context)
-                    else -> GridLayoutManager(context, columnCount)
-                }
-                adapter = CoctailsRecyclerViewAdapter(PlaceholderContent.ITEMS)
+        with(view) {
+            layoutManager = when {
+                columnCount <= 1 -> LinearLayoutManager(context)
+                else -> GridLayoutManager(context, columnCount)
             }
+            adapter = CoctailsRecyclerViewAdapter(items,requireContext())
         }
-        return view
     }
-
     companion object {
 
         // TODO: Customize parameter argument names
